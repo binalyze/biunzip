@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -16,23 +17,22 @@ type zipFile struct {
 }
 
 const (
-	zipFileExt         = ".zip"
-	zipFilenameColName = "File Name"
-	passwordColName    = "Zip Password"
+	filenameColName = "File Name"
+	passwordColName = "Zip Password"
 )
 
 func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
-	csvFileLines, err := readCSVFile(csvFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to read csv file. err: %w", err)
-	}
-
-	err = validateCSVFile(csvFileLines)
+	lines, err := readCSVFile(csvFilePath)
 	if err != nil {
 		return err
 	}
 
-	zipFiles := parseZipFiles(dirPath, csvFileLines)
+	err = validateCSVFile(dirPath, lines)
+	if err != nil {
+		return err
+	}
+
+	zipFiles := parseZipFiles(dirPath, lines)
 
 	err = validateZipFiles(zipFiles)
 	if err != nil {
@@ -42,38 +42,37 @@ func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
 	return unzipFiles(ctx, zipFiles)
 }
 
-func readCSVFile(csvFilePath string) ([]string, error) {
+func readCSVFile(csvFilePath string) ([][]string, error) {
 	file, err := os.Open(csvFilePath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("csv file doesn't exist")
-		}
-		return nil, err
+		return nil, fmt.Errorf("failed to open csv file: %w", err)
 	}
-	defer func() {
-		_ = file.Close()
-	}()
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		lines = append(lines, line)
+	defer file.Close()
+	reader := csv.NewReader(file)
+	lines, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read csv file: %w", err)
 	}
 	return lines, nil
 }
 
-func validateCSVFile(lines []string) error {
-	lineCount := len(lines)
-	if lineCount < 2 {
-		return errors.New("csv file doesn't have any data")
-	}
-
-	err := validateColCounts(lines)
+func validateCSVFile(dirPath string, lines [][]string) error {
+	err := validateLineCount(lines)
 	if err != nil {
 		return err
 	}
 
-	err = checkDuplicateZipFilenames(lines)
+	err = validateHeaderColCount(lines)
+	if err != nil {
+		return err
+	}
+
+	err = checkEmptyFilenames(lines)
+	if err != nil {
+		return err
+	}
+
+	err = checkDuplicateFilenames(lines)
 	if err != nil {
 		return err
 	}
@@ -81,65 +80,79 @@ func validateCSVFile(lines []string) error {
 	return nil
 }
 
-func validateColCounts(lines []string) error {
-	header := lines[0]
-	headerCols := strings.Split(header, ",")
-	headerColCount := len(headerCols)
-	if headerColCount < 2 {
-		return fmt.Errorf("unexpected header column count found in csv file. count: %d expected count: 2", headerColCount)
+func validateLineCount(lines [][]string) error {
+	if len(lines) < 2 {
+		return fmt.Errorf("csv file doesn't have any data")
 	}
+	return nil
+}
 
-	var errs []error
+func validateHeaderColCount(lines [][]string) error {
+	header := lines[0]
+	if len(header) < 2 {
+		return errors.New("unexpected column count found on header line")
+	}
+	return nil
+}
+
+func checkEmptyFilenames(lines [][]string) error {
+	header := lines[0]
+	filenameColIndex := findFilenameColIndex(header)
+	var invalidLineNums []int
 	for i, line := range lines {
-		cols := strings.Split(line, ",")
-		colCount := len(cols)
-		if colCount != headerColCount {
-			errs = append(errs, fmt.Errorf("unexpected column count found on line %d. count: %d expected count: %d", i+1, colCount, headerColCount))
+		filename := line[filenameColIndex]
+		if len(filename) == 0 {
+			invalidLineNums = append(invalidLineNums, i+1)
 		}
 	}
-	if len(errs) > 0 {
-		return combineErrs("unexpectd column counts found in csv file", errs, true)
+	if len(invalidLineNums) > 0 {
+		return fmt.Errorf("empty filename found on line(s) %s", joinLineNums(invalidLineNums))
 	}
 	return nil
 }
 
-func checkDuplicateZipFilenames(lines []string) error {
+func checkDuplicateFilenames(lines [][]string) error {
 	header := lines[0]
-	zipFilenameColIndex := findZipFilenameColIndex(header)
-	var errs []error
-	for i, line := range lines {
-		cols := strings.Split(line, ",")
-		zipFilename := cols[zipFilenameColIndex]
+	filenameColIndex := findFilenameColIndex(header)
+	var duplicateLineNums []int
+	for i := 0; i < len(lines); i++ {
+		lineNum := i + 1
+		if lineNumExists(lineNum, duplicateLineNums) {
+			continue
+		}
+		filename := lines[i][filenameColIndex]
 		for j := i + 1; j < len(lines); j++ {
-			existingLine := lines[j]
-			existingCols := strings.Split(existingLine, ",")
-			existingZipFilename := existingCols[zipFilenameColIndex]
-			if zipFilename == existingZipFilename {
-				errs = append(errs, fmt.Errorf("duplicate zip filename %s found on lines %d and %d", zipFilename, i+1, j+1))
+			existingLineNum := j + 1
+			if lineNumExists(existingLineNum, duplicateLineNums) {
+				continue
+			}
+			existingFilaname := lines[j][filenameColIndex]
+			if filename == existingFilaname {
+				if !lineNumExists(lineNum, duplicateLineNums) {
+					duplicateLineNums = append(duplicateLineNums, lineNum)
+				}
+				duplicateLineNums = append(duplicateLineNums, existingLineNum)
 			}
 		}
 	}
-	if len(errs) > 0 {
-		return combineErrs("duplicate zip filenames found in csv file", errs, true)
+	if len(duplicateLineNums) > 0 {
+		return fmt.Errorf("duplicate filename found on line(s) %s", joinLineNums(duplicateLineNums))
 	}
 	return nil
 }
 
-func parseZipFiles(dirPath string, lines []string) []zipFile {
+func parseZipFiles(dirPath string, lines [][]string) []zipFile {
 	header := lines[0]
-	zipFilenameColIndex := findZipFilenameColIndex(header)
+	filenameColIndex := findFilenameColIndex(header)
 	passwordColIndex := findPasswordColIndex(header)
 	var zipFiles []zipFile
-	for i, line := range lines {
-		if i == 0 {
-			continue
-		}
-		cols := strings.Split(line, ",")
-		zipFilename := cols[zipFilenameColIndex]
-		zipFilePath := filepath.Join(dirPath, zipFilename)
-		password := cols[passwordColIndex]
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+		filename := line[filenameColIndex]
+		filePath := filepath.Join(dirPath, filename)
+		password := line[passwordColIndex]
 		zipFile := zipFile{
-			path:     zipFilePath,
+			path:     filePath,
 			password: password,
 		}
 		zipFiles = append(zipFiles, zipFile)
@@ -147,53 +160,20 @@ func parseZipFiles(dirPath string, lines []string) []zipFile {
 	return zipFiles
 }
 
-func findZipFilenameColIndex(header string) int {
-	cols := strings.Split(header, ",")
-	for i, col := range cols {
-		if col == zipFilenameColName {
-			return i
-		}
-	}
-	return 0
-}
-
-func findPasswordColIndex(header string) int {
-	cols := strings.Split(header, ",")
-	for i, col := range cols {
-		if col == passwordColName {
-			return i
-		}
-	}
-	return len(cols) - 1
-}
-
 func validateZipFiles(zipFiles []zipFile) error {
 	var errs []error
-	for i, zipFile := range zipFiles {
-		err := validateZipFile(zipFile)
+	for _, zipFile := range zipFiles {
+		fileInfo, err := os.Stat(zipFile.path)
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf("failed to validate zip file. zip file: %s line: %d err: %w", zipFile.path, i+2, err),
-			)
+			errs = append(errs, fmt.Errorf("failed to get file info for '%s': %w", zipFile.path, err))
+			continue
+		}
+		if !fileInfo.Mode().IsRegular() {
+			errs = append(errs, fmt.Errorf("'%s' is not a regular file", zipFile.path))
 		}
 	}
 	if len(errs) > 0 {
-		return combineErrs("failed to validate zip files in csv file", errs, true)
-	}
-	return nil
-}
-
-func validateZipFile(zipFile zipFile) error {
-	fileInfo, err := os.Stat(zipFile.path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return errors.New("zip file doesn't exist")
-		}
-		return err
-	}
-	if !fileInfo.Mode().IsRegular() {
-		return errors.New("zip file is not regular file")
+		return makeMultiErr("failed to validate zip files in csv file", errs)
 	}
 	return nil
 }
@@ -207,7 +187,45 @@ func unzipFiles(ctx context.Context, zipFiles []zipFile) error {
 		}
 	}
 	if len(errs) > 0 {
-		return combineErrs("failed to unzip files", errs, false)
+		return joinMultiErrs(errs)
 	}
 	return nil
+}
+
+func findFilenameColIndex(header []string) int {
+	for i, col := range header {
+		if col == filenameColName {
+			return i
+		}
+	}
+	return 0
+}
+
+func findPasswordColIndex(header []string) int {
+	for i, col := range header {
+		if col == passwordColName {
+			return i
+		}
+	}
+	return len(header) - 1
+}
+
+func joinLineNums(lineNums []int) string {
+	var builder strings.Builder
+	for i, lineNum := range lineNums {
+		builder.WriteString(strconv.Itoa(lineNum))
+		if i < len(lineNums)-1 {
+			builder.WriteString(", ")
+		}
+	}
+	return builder.String()
+}
+
+func lineNumExists(lineNum int, lineNums []int) bool {
+	for _, existingLineNum := range lineNums {
+		if lineNum == existingLineNum {
+			return true
+		}
+	}
+	return false
 }

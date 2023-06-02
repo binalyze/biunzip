@@ -11,22 +11,20 @@ import (
 	"github.com/alexmullins/zip"
 )
 
-const defaultBufSize = 1 * 1024 * 1024 // 1MB
+const defaultBufSize = 10 * 1024 * 1024 // 10MB
 
 func unzipFile(ctx context.Context, filePath string, password string) error {
 	dirPath := makeDirPath(filePath)
-	err := os.MkdirAll(dirPath, os.ModePerm)
+	err := os.MkdirAll(dirPath, 0755) // 0755: rwxr-xr-x
 	if err != nil {
-		return fmt.Errorf("creating directory failed. dir: %s err: %w", dirPath, err)
+		return fmt.Errorf("failed to create dir '%s': %w", dirPath, err)
 	}
 
 	zipReader, err := zip.OpenReader(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open zip file. file: %s err: %w", filePath, err)
+		return fmt.Errorf("failed to open file '%s': %w", filePath, err)
 	}
-	defer func() {
-		_ = zipReader.Close()
-	}()
+	defer zipReader.Close()
 
 	var errs []error
 
@@ -42,10 +40,7 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 	for _, zipEntry := range zipReader.File {
 		err = ctx.Err()
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf("context error. err: %w", err),
-			)
+			errs = append(errs, fmt.Errorf("context error: %w", err))
 			break
 		}
 
@@ -53,10 +48,7 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 			subdirPath := filepath.Join(dirPath, zipEntry.Name)
 			err = os.MkdirAll(subdirPath, zipEntry.Mode())
 			if err != nil {
-				errs = append(
-					errs,
-					fmt.Errorf("failed to create subdirectory. zip file: %s subdirectory: %s err: %w", filePath, subdirPath, err),
-				)
+				errs = append(errs, fmt.Errorf("failed to create subdir '%s': %w", subdirPath, err))
 			}
 			continue
 		}
@@ -67,10 +59,7 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 
 		zipEntryReader, err := zipEntry.Open()
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf("failed to open zip entry. zip file: %s zip entry: %s err: %w", filePath, zipEntry.Name, err),
-			)
+			errs = append(errs, fmt.Errorf("failed to open zip entry '%s': %w", zipEntry.Name, err))
 			continue
 		}
 		ctxZipEntryReader := newContextReader(ctx, zipEntryReader)
@@ -79,36 +68,32 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 		dstFilePath := filepath.Join(dirPath, zipEntry.Name)
 		dstFile, err := os.OpenFile(dstFilePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, zipEntry.Mode())
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf("failed to create destination file. zip file: %s zip entry: %s destination file: %s err: %w", filePath, zipEntry.Name, dstFilePath, err),
-			)
+			errs = append(errs, fmt.Errorf("failed to create dst file '%s': %w", dstFilePath, err))
 			continue
 		}
 		dstWriter := bufio.NewWriterSize(dstFile, defaultBufSize)
 
 		_, err = io.Copy(dstWriter, srcReader)
+		if err == nil {
+			err = dstWriter.Flush()
+		}
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf("failed to copy source file to destination file. zip file: %s zip entry: %s destination file: %s err: %w", filePath, zipEntry.Name, dstFilePath, err),
-			)
+			_ = dstFile.Close()
+			errs = append(errs, fmt.Errorf("failed to copy src file '%s' to dst file '%s': %w", zipEntry.Name, dstFilePath, err))
 			continue
 		}
 
 		err = dstFile.Close()
 		if err != nil {
-			errs = append(
-				errs,
-				fmt.Errorf("failed to close destination file. zip file: %s zip entry: %s destination file: %s err: %w", filePath, zipEntry.Name, dstFilePath, err),
-			)
+			errs = append(errs, fmt.Errorf("failed to close destination file '%s': %w", dstFilePath, err))
 			continue
 		}
 
 		_ = zipEntryReader.Close()
 	}
 	if len(errs) > 0 {
-		return combineErrs("errors for "+filePath+":", errs, true)
+		msg := fmt.Sprintf("failed to unzip file '%s'", filePath)
+		return makeMultiErr(msg, errs)
 	}
 	return nil
 }
