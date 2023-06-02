@@ -5,7 +5,6 @@ import (
 	"strings"
 )
 
-// makeMultiErr makes multi error with joining message and errors.
 func makeMultiErr(msg string, errs []error) error {
 	var builder strings.Builder
 	builder.WriteString(msg)
@@ -17,7 +16,6 @@ func makeMultiErr(msg string, errs []error) error {
 	return errors.New(builder.String())
 }
 
-// joinMultiErrs joins multi errors.
 func joinMultiErrs(errs []error) error {
 	var builder strings.Builder
 	for i, err := range errs {
