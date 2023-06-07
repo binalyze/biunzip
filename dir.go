@@ -191,7 +191,7 @@ func unzipFiles(ctx context.Context, files []zipFile, maxConcurrency int) error 
 			sem.release()
 		}(file.path, file.password)
 	}
-	sem.releaseAll()
+	sem.wait()
 	sem.close()
 	if len(errs) > 0 {
 		return joinMultiErrs(errs)

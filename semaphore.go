@@ -14,9 +14,9 @@ func (sem semphore) release() {
 	<-sem
 }
 
-func (sem semphore) releaseAll() {
+func (sem semphore) wait() {
 	for i := 0; i < cap(sem); i++ {
-		sem.release()
+		sem.acquire()
 	}
 }
 
