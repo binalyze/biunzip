@@ -17,12 +17,11 @@ type zipFile struct {
 }
 
 const (
-	filenameColName         = "File Name"
-	passwordColName         = "Zip Password"
-	maxConcurrentUnzipCount = 4
+	filenameColName = "File Name"
+	passwordColName = "Zip Password"
 )
 
-func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
+func unzipDir(ctx context.Context, dirPath string, csvFilePath string, maxConcurrency int) error {
 	lines, err := readCSVFile(csvFilePath)
 	if err != nil {
 		return err
@@ -40,7 +39,7 @@ func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
 		return err
 	}
 
-	return unzipFiles(ctx, files)
+	return unzipFiles(ctx, files, maxConcurrency)
 }
 
 func readCSVFile(csvFilePath string) ([][]string, error) {
@@ -179,8 +178,8 @@ func validateZipFiles(files []zipFile) error {
 	return nil
 }
 
-func unzipFiles(ctx context.Context, files []zipFile) error {
-	sem := make(chan struct{}, maxConcurrentUnzipCount)
+func unzipFiles(ctx context.Context, files []zipFile, maxConcurrency int) error {
+	sem := make(chan struct{}, maxConcurrency)
 	var errs []error
 	for _, file := range files {
 		sem <- struct{}{}
