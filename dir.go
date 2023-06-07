@@ -17,8 +17,9 @@ type zipFile struct {
 }
 
 const (
-	filenameColName = "File Name"
-	passwordColName = "Zip Password"
+	filenameColName         = "File Name"
+	passwordColName         = "Zip Password"
+	maxConcurrentUnzipCount = 4
 )
 
 func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
@@ -32,14 +33,14 @@ func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
 		return err
 	}
 
-	zipFiles := parseZipFiles(dirPath, lines)
+	files := parseZipFiles(dirPath, lines)
 
-	err = validateZipFiles(zipFiles)
+	err = validateZipFiles(files)
 	if err != nil {
 		return err
 	}
 
-	return unzipFiles(ctx, zipFiles)
+	return unzipFiles(ctx, files)
 }
 
 func readCSVFile(csvFilePath string) ([][]string, error) {
@@ -145,31 +146,31 @@ func parseZipFiles(dirPath string, lines [][]string) []zipFile {
 	header := lines[0]
 	filenameColIndex := findFilenameColIndex(header)
 	passwordColIndex := findPasswordColIndex(header)
-	var zipFiles []zipFile
+	var files []zipFile
 	for i := 1; i < len(lines); i++ {
 		line := lines[i]
 		filename := line[filenameColIndex]
 		filePath := filepath.Join(dirPath, filename)
 		password := line[passwordColIndex]
-		zipFile := zipFile{
+		file := zipFile{
 			path:     filePath,
 			password: password,
 		}
-		zipFiles = append(zipFiles, zipFile)
+		files = append(files, file)
 	}
-	return zipFiles
+	return files
 }
 
-func validateZipFiles(zipFiles []zipFile) error {
+func validateZipFiles(files []zipFile) error {
 	var errs []error
-	for _, zipFile := range zipFiles {
-		fileInfo, err := os.Stat(zipFile.path)
+	for _, file := range files {
+		fileInfo, err := os.Stat(file.path)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get file info for '%s': %w", zipFile.path, err))
+			errs = append(errs, fmt.Errorf("failed to get file info for '%s': %w", file.path, err))
 			continue
 		}
 		if !fileInfo.Mode().IsRegular() {
-			errs = append(errs, fmt.Errorf("'%s' is not a regular file", zipFile.path))
+			errs = append(errs, fmt.Errorf("'%s' is not a regular file", file.path))
 		}
 	}
 	if len(errs) > 0 {
@@ -178,14 +179,23 @@ func validateZipFiles(zipFiles []zipFile) error {
 	return nil
 }
 
-func unzipFiles(ctx context.Context, zipFiles []zipFile) error {
+func unzipFiles(ctx context.Context, files []zipFile) error {
+	sem := make(chan struct{}, maxConcurrentUnzipCount)
 	var errs []error
-	for _, zipFile := range zipFiles {
-		err := unzipFile(ctx, zipFile.path, zipFile.password)
-		if err != nil {
-			errs = append(errs, err)
-		}
+	for _, file := range files {
+		sem <- struct{}{}
+		go func(filePath string, password string) {
+			err := unzipFile(ctx, filePath, password)
+			if err != nil {
+				errs = append(errs, err)
+			}
+			<-sem
+		}(file.path, file.password)
 	}
+	for i := 0; i < cap(sem); i++ {
+		sem <- struct{}{}
+	}
+	close(sem)
 	if len(errs) > 0 {
 		return joinMultiErrs(errs)
 	}
