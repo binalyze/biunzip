@@ -12,19 +12,15 @@ import (
 )
 
 const (
-	dirFlagUsage = "dir path to unzip"
-	csvFlagUsage = "path for the csv file containing a list of zip files names and passwords to unzip. use this " +
-		"flag with the dir flag."
+	dirFlagUsage      = "dir path to unzip"
+	csvFlagUsage      = "path for the csv file containing a list of zip files names and passwords to unzip. use this flag with the dir flag."
 	fileFlagUsage     = "path for the file to unzip"
-	passwordFlagUsage = "password for the zip file. use this flag with the file flag if the input file is encrypted. " +
-		"(optional)"
+	passwordFlagUsage = "password for the zip file. use this flag with the file flag if the input file is encrypted. (optional)"
 )
 
 var (
-	errEmptyCSVFilePath = errors.New("please provide the csv file path along with the directory path to unzip files " +
-		"in the directory.")
-	errUnexpectedFlags = errors.New("please provide both the directory and csv file paths to unzip files in the " +
-		"directory, or provide a file path to unzip a single file. if the file is encrypted, include the password.")
+	errEmptyCSVFilePath = errors.New("please provide the csv file path along with the directory path to unzip files in the directory.")
+	errUnexpectedFlag   = errors.New("please provide both the directory and csv file paths to unzip files in the directory, or provide a file path to unzip a single file. if the file is encrypted, include the password.")
 )
 
 func main() {
@@ -85,5 +81,5 @@ func run(ctx *cli.Context) error {
 		password := ctx.String("password")
 		return unzipFile(ctx.Context, filePath, password)
 	}
-	return errUnexpectedFlags
+	return errUnexpectedFlag
 }

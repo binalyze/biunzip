@@ -26,17 +26,8 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 	}
 	defer zipReader.Close()
 
+	fmt.Printf("unzipping %s...\n", filePath)
 	var errs []error
-
-	fmt.Printf("unzipping %s: ", filePath)
-	defer func() {
-		if errs != nil {
-			fmt.Println("failed")
-			return
-		}
-		fmt.Println("ok")
-	}()
-
 	for _, zipEntry := range zipReader.File {
 		err = ctx.Err()
 		if err != nil {
