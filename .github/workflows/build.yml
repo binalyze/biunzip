@@ -2,8 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
     tags: ["*"]
+  workflow_dispatch:
 
 env:
   CGO_ENABLED: 0
