@@ -179,22 +179,20 @@ func validateZipFiles(files []zipFile) error {
 }
 
 func unzipFiles(ctx context.Context, files []zipFile, maxConcurrency int) error {
-	sem := make(chan struct{}, maxConcurrency)
 	var errs []error
+	sem := newSemaphore(maxConcurrency)
 	for _, file := range files {
-		sem <- struct{}{}
+		sem.acquire()
 		go func(filePath string, password string) {
 			err := unzipFile(ctx, filePath, password)
 			if err != nil {
 				errs = append(errs, err)
 			}
-			<-sem
+			sem.release()
 		}(file.path, file.password)
 	}
-	for i := 0; i < cap(sem); i++ {
-		sem <- struct{}{}
-	}
-	close(sem)
+	sem.releaseAll()
+	sem.close()
 	if len(errs) > 0 {
 		return joinMultiErrs(errs)
 	}
