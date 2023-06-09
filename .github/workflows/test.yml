@@ -97,7 +97,7 @@ jobs:
         
       - name: Integration Test
         run: |
-          ./biunzip -d test -c files.csv
+          ./biunzip -d test -c test/files.csv
           echo "checking diff of file_1..."
           diff file_1 test/file_1/file_1
           echo "checking diff of file_2..."
