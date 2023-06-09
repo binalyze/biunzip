@@ -30,4 +30,4 @@ jobs:
         run: ./biunzip -f test_data/zip_files/encrypted_sample.zip -p sample_password
 
       - name: Unzip Multiple Files
-        run: ./biunzip -d test_data/zipfiles -c test_data/csv_files/success.csv
+        run: ./biunzip -d test_data/zip_files -c test_data/csv_files/success.csv
