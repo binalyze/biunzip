@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	dirFlagUsage            = "dir path to unzip"
-	csvFlagUsage            = "path for the csv file containing a list of zip files names and passwords to unzip. use this flag with the dir flag."
-	maxConcurrencyFlagUsage = "max number of concurrent unzips. use this flag with the dir flag."
+	dirFlagUsage = "dir path to unzip"
+	csvFlagUsage = "path for the csv file containing a list of zip files names and passwords to unzip. use this flag with the dir flag."
 
 	fileFlagUsage     = "path for the file to unzip"
 	passwordFlagUsage = "password for the zip file. use this flag with the file flag if the input file is encrypted."
@@ -39,12 +38,6 @@ func main() {
 				Name:    "csv",
 				Aliases: []string{"c"},
 				Usage:   csvFlagUsage,
-			},
-			&cli.IntFlag{
-				Name:    "max-concurrency",
-				Aliases: []string{"m"},
-				Usage:   maxConcurrencyFlagUsage,
-				Value:   1,
 			},
 			&cli.PathFlag{
 				Name:    "file",
@@ -81,8 +74,7 @@ func run(ctx *cli.Context) error {
 		if len(csvFilePath) == 0 {
 			return errEmptyCSVFilePath
 		}
-		maxConcurrency := ctx.Int("max-concurrency")
-		return unzipDir(ctx.Context, dirPath, csvFilePath, maxConcurrency)
+		return unzipDir(ctx.Context, dirPath, csvFilePath)
 	}
 	filePath := ctx.Path("file")
 	if len(filePath) > 0 {

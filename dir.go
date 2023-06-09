@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,7 +23,7 @@ const (
 	passwordColName = "Zip Password"
 )
 
-func unzipDir(ctx context.Context, dirPath string, csvFilePath string, maxConcurrency int) error {
+func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
 	lines, err := readCSVFile(csvFilePath)
 	if err != nil {
 		return err
@@ -40,7 +41,7 @@ func unzipDir(ctx context.Context, dirPath string, csvFilePath string, maxConcur
 		return err
 	}
 
-	return unzipFiles(ctx, files, maxConcurrency)
+	return unzipFiles(ctx, files)
 }
 
 func readCSVFile(csvFilePath string) ([][]string, error) {
@@ -179,9 +180,10 @@ func validateZipFiles(files []zipFile) error {
 	return nil
 }
 
-func unzipFiles(ctx context.Context, files []zipFile, maxConcurrency int) error {
+func unzipFiles(ctx context.Context, files []zipFile) error {
 	var mu sync.Mutex
 	var errs []error
+	maxConcurrency := runtime.NumCPU()
 	sem := newSemaphore(maxConcurrency)
 	for _, file := range files {
 		sem.acquire()
