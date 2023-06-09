@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type zipFile struct {
@@ -179,6 +180,7 @@ func validateZipFiles(files []zipFile) error {
 }
 
 func unzipFiles(ctx context.Context, files []zipFile, maxConcurrency int) error {
+	var mu sync.Mutex
 	var errs []error
 	sem := newSemaphore(maxConcurrency)
 	for _, file := range files {
@@ -186,13 +188,14 @@ func unzipFiles(ctx context.Context, files []zipFile, maxConcurrency int) error 
 		go func(filePath string, password string) {
 			err := unzipFile(ctx, filePath, password)
 			if err != nil {
+				mu.Lock()
 				errs = append(errs, err)
+				mu.Unlock()
 			}
 			sem.release()
 		}(file.path, file.password)
 	}
 	sem.wait()
-	sem.close()
 	if len(errs) > 0 {
 		return joinMultiErrs(errs)
 	}

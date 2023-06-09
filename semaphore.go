@@ -19,7 +19,3 @@ func (sem semphore) wait() {
 		sem.acquire()
 	}
 }
-
-func (sem semphore) close() {
-	close(sem)
-}
