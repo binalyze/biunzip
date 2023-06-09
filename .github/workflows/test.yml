@@ -62,3 +62,7 @@ jobs:
 
       - name: Test
         run: GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go test -v -count 1 -failfast ./...
+
+      - name: Integration Test
+        run: |
+          bash --version
