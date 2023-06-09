@@ -64,7 +64,7 @@ jobs:
         run: GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go test -v -count 1 -failfast ./...
   
   integration_test:
-    # needs: test
+    needs: test
     runs-on: ubuntu-latest
     name: Integration Test
     defaults:
@@ -93,9 +93,9 @@ jobs:
           7z a test/file_1.zip file_1
           7z a test/file_2.zip file_2 -mem=AES256 -pbinalyze
 
-          echo "File Name,Zip Password" > files.csv
-          echo "file_1.zip," >> files.csv
-          echo "file_2.zip,binalyze" >> files.csv
+          echo "File Name,Zip Password" > test/files.csv
+          echo "file_1.zip," >> test/files.csv
+          echo "file_2.zip,binalyze" >> test/files.csv
         
       - name: Integration Test
         run: |
@@ -103,5 +103,6 @@ jobs:
 
           echo "checking diff of file_1..."
           diff file_1 test/file_1/file_1
+
           echo "checking diff of file_2..."
           diff file_2 test/file_2/file_2
