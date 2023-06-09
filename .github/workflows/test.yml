@@ -62,17 +62,36 @@ jobs:
 
       - name: Test
         run: GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go test -v -count 1 -failfast ./...
-      
+  
+  integration_test:
+    # needs: test
+    runs-on: ubuntu-latest
+    name: Integration Test
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
       - name: Install 7z
         run: sudo apt install --no-install-recommends -y p7zip-full
 
-      - name: Create Integration Test Data
+      - name: Build biunzip
+        run: GOOS=linux GOARCH=amd64 go build -o biunzip .
+
+      - name: Create Test Data
         run: |
           mkdir test
           cd test
           head -c 100K < /dev/urandom > file_1
           head -c 100K < /dev/urandom > file_2
-          md5sum file_1 file_2
+          md5sum file_1 file_2 > ../expected.md5
           7z a file_1.zip file_1
           7z a file_2.zip file_2 -mem=AES256 -pbinalyze
           rm file_1 file_2
@@ -80,9 +99,11 @@ jobs:
           echo "File Name,Zip Password" > files.csv
           echo "file_1.zip," >> files.csv
           echo "file_2.zip,binalyze" >> files.csv
-      
+        
       - name: Integration Test
         run: |
-          GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go build -o biunzip .
           ./biunzip -d test -c test/files.csv
-          md5sum test/file_1/file_1 test/file_2/file_2
+          md5sum test/file_1/file_1 test/file_2/file_2 > actual.md5
+          cat expected.md5
+          cat actual.md5
+          diff expected.md5 actual.md5
