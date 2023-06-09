@@ -89,10 +89,8 @@ jobs:
         run: |
           head -c 100K < /dev/urandom > file_1
           head -c 100K < /dev/urandom > file_2
-
           7z a test/file_1.zip file_1
           7z a test/file_2.zip file_2 -mem=AES256 -pbinalyze
-
           echo "File Name,Zip Password" > test/files.csv
           echo "file_1.zip," >> test/files.csv
           echo "file_2.zip,binalyze" >> test/files.csv
@@ -100,9 +98,7 @@ jobs:
       - name: Integration Test
         run: |
           ./biunzip -d test -c files.csv
-
           echo "checking diff of file_1..."
           diff file_1 test/file_1/file_1
-
           echo "checking diff of file_2..."
           diff file_2 test/file_2/file_2
