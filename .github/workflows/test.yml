@@ -72,13 +72,13 @@ jobs:
           head -c 100K < /dev/urandom > test/file_1
           head -c 100K < /dev/urandom > test/file_2
           md5sum test/file_1 test/file_2
-          7z a test/file_01.zip test/file_1
-          7z a test/file_02.zip test/file_2 -mem=AES256 -pbinalyze
+          7z a test/file_1.zip test/file_1
+          7z a test/file_2.zip test/file_2 -mem=AES256 -pbinalyze
           rm test/file_1 test/file_2
 
           echo "File Name,Zip Password" > test.csv
-          echo "file_01.zip," >> test.csv
-          echo "file_02.zip,binalyze" >> test.csv
+          echo "file_1.zip," >> test.csv
+          echo "file_2.zip,binalyze" >> test.csv
       
       - name: Integration Test
         run: |
