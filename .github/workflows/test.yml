@@ -84,5 +84,5 @@ jobs:
       - name: Integration Test
         run: |
           GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go build -o biunzip .
-          ./biunzip -d ./test -c ./test/files.csv
+          ./biunzip -d test -c test/files.csv
           md5sum test/file_1/file_1 test/file_2/file_2
