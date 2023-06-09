@@ -101,5 +101,7 @@ jobs:
         run: |
           ./biunzip -d test -c files.csv
 
+          echo "checking diff of file_1..."
           diff file_1 test/file_1/file_1
+          echo "checking diff of file_2..."
           diff file_2 test/file_2/file_2
