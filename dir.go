@@ -29,7 +29,7 @@ func unzipDir(ctx context.Context, dirPath string, csvFilePath string) error {
 		return err
 	}
 
-	err = validateCSVFile(dirPath, lines)
+	err = validateCSVFile(lines)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func readCSVFile(csvFilePath string) ([][]string, error) {
 	return lines, nil
 }
 
-func validateCSVFile(dirPath string, lines [][]string) error {
+func validateCSVFile(lines [][]string) error {
 	err := validateLineCount(lines)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func checkDuplicateFilenames(lines [][]string) error {
 		}
 	}
 	if len(duplicateLineNums) > 0 {
-		return fmt.Errorf("duplicate filename found on line(s) %s", joinLineNums(duplicateLineNums))
+		return fmt.Errorf("duplicate filenames found on lines %s", joinLineNums(duplicateLineNums))
 	}
 	return nil
 }
