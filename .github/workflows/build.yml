@@ -1,0 +1,82 @@
+name: Build
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ["*"]
+
+env:
+  CGO_ENABLED: 0
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+          [
+            [macOS-latest, darwin],
+            [ubuntu-latest, linux],
+            [windows-latest, windows],
+          ]
+        arch: [arm64, amd64, 386]
+        go-version: ["1.20.5"]
+        exclude:
+          - os: [macOS-latest, darwin]
+            arch: 386
+          - os: [windows-latest, windows]
+            arch: arm64
+    runs-on: ${{ matrix.os[0] }}
+    name: Build (go${{ matrix.go-version }}, ${{ matrix.os[1] }}, ${{ matrix.arch }})
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Build
+        run: |
+          output=build/biunzip_${{ matrix.os[1] }}_${{ matrix.arch }}
+          [ ${{ matrix.os[1] }} = windows ] && output+=.exe
+          GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go build -v -o $output .
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: build
+
+  calculate_checksums:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Calculate Checksums
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries
+          path: build
+
+      - name: Calculate Checksums
+        run: |
+          mkdir checksums
+          cd build
+          md5sum * > ../checksums/md5_checksums.txt
+          sha1sum * > ../checksums/sha1_checksums.txt
+          sha256sum * > ../checksums/sha256_checksums.txt
+
+      - name: Upload Checksums
+        uses: actions/upload-artifact@v3
+        with:
+          name: checksums
+          path: checksums

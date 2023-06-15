@@ -1,0 +1,104 @@
+name: Test
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    name: Security (govulncheck)
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.20.5"
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck -v ./...
+
+  test:
+    needs: govulncheck
+    strategy:
+      matrix:
+        os:
+          [
+            [macOS-latest, darwin],
+            [ubuntu-latest, linux],
+            [windows-latest, windows],
+          ]
+        arch: [amd64]
+        go-version: ["1.20.5"]
+    runs-on: ${{ matrix.os[0] }}
+    name: Test (go${{ matrix.go-version }}, ${{ matrix.os[1] }}, ${{ matrix.arch }})
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: Run golangci-lint
+        run: golangci-lint run -v ./...
+
+      - name: Test
+        run: GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go test -v -count 1 -failfast ./...
+  
+  integration_test:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Integration Test
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Install 7z
+        run: sudo apt install --no-install-recommends -y p7zip-full
+
+      - name: Build biunzip
+        run: GOOS=linux GOARCH=amd64 go build -o biunzip .
+
+      - name: Create Test Data
+        run: |
+          head -c 100K < /dev/urandom > file_1
+          head -c 100K < /dev/urandom > file_2
+          7z a test/file_1.zip file_1
+          7z a test/file_2.zip file_2 -mem=AES256 -pbinalyze
+          echo "File Name,Zip Password" > test/files.csv
+          echo "file_1.zip," >> test/files.csv
+          echo "file_2.zip,binalyze" >> test/files.csv
+        
+      - name: Integration Test
+        run: |
+          ./biunzip -d test -c test/files.csv
+          echo "checking diff of file_1..."
+          diff file_1 test/file_1/file_1
+          echo "checking diff of file_2..."
+          diff file_2 test/file_2/file_2
