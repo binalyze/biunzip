@@ -35,14 +35,15 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 			break
 		}
 
-		if zipEntry.Mode().IsDir() {
-			subdirPath := filepath.Join(dirPath, zipEntry.Name)
-			err = os.MkdirAll(subdirPath, zipEntry.Mode())
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to create subdir '%s': %w", subdirPath, err))
-			}
+		dstPath := filepath.Join(dirPath, zipEntry.Name)
+
+		if zipEntry.FileInfo().IsDir() {
+			_ = os.MkdirAll(dstPath, zipEntry.Mode())
 			continue
 		}
+
+		dstDirPath := filepath.Dir(dstPath)
+		_ = os.MkdirAll(dstDirPath, zipEntry.Mode())
 
 		if len(password) > 0 {
 			zipEntry.SetPassword(password)
@@ -56,10 +57,9 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 		ctxZipEntryReader := newContextReader(ctx, zipEntryReader)
 		srcReader := bufio.NewReaderSize(ctxZipEntryReader, defaultBufSize)
 
-		dstFilePath := filepath.Join(dirPath, zipEntry.Name)
-		dstFile, err := os.OpenFile(dstFilePath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, zipEntry.Mode())
+		dstFile, err := os.OpenFile(dstPath, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, zipEntry.Mode())
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to create dst file '%s': %w", dstFilePath, err))
+			errs = append(errs, fmt.Errorf("failed to create dst file '%s': %w", dstPath, err))
 			continue
 		}
 		dstWriter := bufio.NewWriterSize(dstFile, defaultBufSize)
@@ -70,13 +70,13 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 		}
 		if err != nil {
 			_ = dstFile.Close()
-			errs = append(errs, fmt.Errorf("failed to copy src file '%s' to dst file '%s': %w", zipEntry.Name, dstFilePath, err))
+			errs = append(errs, fmt.Errorf("failed to copy src file '%s' to dst file '%s': %w", zipEntry.Name, dstPath, err))
 			continue
 		}
 
 		err = dstFile.Close()
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to close destination file '%s': %w", dstFilePath, err))
+			errs = append(errs, fmt.Errorf("failed to close destination file '%s': %w", dstPath, err))
 			continue
 		}
 
