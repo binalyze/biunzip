@@ -45,6 +45,8 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 		dstDirPath := filepath.Dir(dstPath)
 		_ = os.MkdirAll(dstDirPath, zipEntry.Mode())
 
+		zipEntry.DeferAuth = true
+
 		if len(password) > 0 {
 			zipEntry.SetPassword(password)
 		}
