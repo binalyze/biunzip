@@ -1,5 +1,7 @@
 # biunzip
 
+## DEPRECATED - PASSWORD PROTECTION IS REMOVED FROM OFF-NETWORK ZIP OUTPUTS 
+
 [![Build](https://github.com/binalyze/biunzip/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/binalyze/biunzip/actions/workflows/build.yml)
 [![Test](https://github.com/binalyze/biunzip/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/binalyze/biunzip/actions/workflows/test.yml)
 
