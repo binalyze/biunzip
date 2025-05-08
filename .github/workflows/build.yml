@@ -47,34 +47,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: binaries
+          name: binaries-${{ matrix.go-version }}-${{ matrix.os[1] }}-${{ matrix.arch }}
           path: build
-
-  calculate_checksums:
-    needs: build
-    runs-on: ubuntu-latest
-    name: Calculate Checksums
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: binaries
-          path: build
-
-      - name: Calculate Checksums
-        run: |
-          mkdir checksums
-          cd build
-          sha256sum * > ../checksums/sha256_checksums.txt
-
-      - name: Upload Checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: checksums
-          path: checksums
