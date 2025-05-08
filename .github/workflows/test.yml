@@ -20,7 +20,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: "1.21"
+          go-version: "1.23"
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -39,7 +39,7 @@ jobs:
             [windows-latest, windows],
           ]
         arch: [amd64]
-        go-version: ["1.21"]
+        go-version: ["1.23"]
     runs-on: ${{ matrix.os[0] }}
     name: Test (go${{ matrix.go-version }}, ${{ matrix.os[1] }}, ${{ matrix.arch }})
     defaults:
@@ -58,7 +58,7 @@ jobs:
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       - name: Run golangci-lint
-        run: golangci-lint run -v ./...
+        run: golangci-lint run -v -timeout 10m ./...
 
       - name: Test
         run: GOOS=${{ matrix.os[1] }} GOARCH=${{ matrix.arch }} go test -v -count 1 -failfast ./...

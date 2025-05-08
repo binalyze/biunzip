@@ -71,8 +71,6 @@ jobs:
         run: |
           mkdir checksums
           cd build
-          md5sum * > ../checksums/md5_checksums.txt
-          sha1sum * > ../checksums/sha1_checksums.txt
           sha256sum * > ../checksums/sha256_checksums.txt
 
       - name: Upload Checksums
