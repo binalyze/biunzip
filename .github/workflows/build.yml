@@ -47,5 +47,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.go-version }}-${{ matrix.os[1] }}-${{ matrix.arch }}
+          name: binaries-go${{ matrix.go-version }}-${{ matrix.os[1] }}-${{ matrix.arch }}
           path: build
