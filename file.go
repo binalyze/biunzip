@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/alexmullins/zip"
 )
@@ -25,6 +26,10 @@ func unzipFile(ctx context.Context, filePath string, password string) error {
 		return fmt.Errorf("failed to open file '%s': %w", filePath, err)
 	}
 	defer zipReader.Close()
+
+	if name, hasInsecure := hasInsecurePaths(zipReader.File); hasInsecure {
+		return fmt.Errorf("insecure path '%s' found in zip file '%s'", name, filePath)
+	}
 
 	fmt.Printf("unzipping %s...\n", filePath)
 	var errs []error
@@ -95,4 +100,13 @@ func makeDirPath(filePath string) string {
 	ext := filepath.Ext(filePath)
 	dirPath := filePath[:len(filePath)-len(ext)]
 	return dirPath
+}
+
+func hasInsecurePaths(files []*zip.File) (string, bool) {
+	for _, file := range files {
+		if !filepath.IsLocal(file.Name) || strings.Contains(file.Name, `\`) {
+			return file.Name, true
+		}
+	}
+	return "", false
 }

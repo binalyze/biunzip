@@ -1,3 +1,5 @@
+//go:debug zipinsecurepath=0
+
 package main
 
 import (
@@ -20,8 +22,8 @@ const (
 )
 
 var (
-	errEmptyCSVFilePath = errors.New("please provide the csv file path along with the directory path to unzip files in the directory.")
-	errUnexpectedFlag   = errors.New("please provide both the directory and csv file paths to unzip files in the directory, or provide a file path to unzip a single file. if the file is encrypted, include the password.")
+	errEmptyCSVFilePath = errors.New("please provide the csv file path along with the directory path to unzip files in the directory")
+	errUnexpectedFlag   = errors.New("please provide both the directory and csv file paths to unzip files in the directory, or provide a file path to unzip a single file. if the file is encrypted, include the password")
 )
 
 func main() {
